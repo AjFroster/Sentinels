@@ -1,0 +1,15 @@
+[project]
+name = "sentinels"
+version = "0.1.0"
+description = "Local vLLM + Google ADK agent playground"
+authors = [{ name = "Andrew Foster" }]
+requires-python = ">=3.10"
+
+dependencies = [
+    "ollama",                 # Python client for interacting with Ollama
+    "google-generativeai",    # For ADK-related testing
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"

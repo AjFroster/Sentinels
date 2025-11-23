@@ -1,3 +1,5 @@
+uv run uvicorn main:app --reload
+
 # 1. Install a clean Python 3.10 virtual environment using uv
 uv venv --python 3.10
 source .venv/bin/activate

@@ -1,7 +1,13 @@
+import logging
 import time
+
 from ollama import Client
 
-ollama = Client(host="http://localhost:11434")
+from sentinels.council.config import ollama_host
+
+log = logging.getLogger(__name__)
+
+ollama = Client(host=ollama_host())
 
 async def ollama_chat_completion(request_body: dict):
     model = request_body["model"]
@@ -13,8 +19,12 @@ async def ollama_chat_completion(request_body: dict):
         messages=messages
     )
     
-    print(result)
-    
+    # Log shape, never content. Prompts and completions are exactly what a log
+    # collector would scrape, and on a tool whose point is that data stays local
+    # that would be the leak.
+    log.debug("ollama chat: model=%s messages=%d completion_chars=%d",
+              model, len(messages), len(result["message"]["content"]))
+
     # Translate Ollama → OpenAI format
     return {
         "id": f"ollama-{model}",

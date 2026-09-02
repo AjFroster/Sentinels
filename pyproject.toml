@@ -1,17 +1,34 @@
 [project]
 name = "sentinels"
 version = "0.1.0"
-description = "Local vLLM + Google ADK agent playground"
+description = "A council of local language models that deliberates and writes briefs"
 authors = [{ name = "Andrew Foster" }]
 requires-python = ">=3.10"
 
 dependencies = [
-    "ollama",                 # Python client for interacting with Ollama
-    "google-generativeai",    # For ADK-related testing
-    "fastapi", 
-    "uvicorn[standard]"  
+    "ollama",              # Python client for the local Ollama server
+    "google-adk",
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic>=2",         # schemas for settings, briefs, and the API
+    "httpx",               # async calls to the Ollama HTTP API
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
 ]
 
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-q --strict-markers"
+markers = [
+    "smoke: shallow checks that the assembled app stands up",
+    "e2e: drives a real server over HTTP against a stub model backend",
+]

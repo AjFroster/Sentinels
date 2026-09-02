@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sentinels</title>
+<!-- Fonts are bundled, not linked. The app must render without a network. -->
+<link rel="stylesheet" href="/app/fonts.css">
+<link rel="stylesheet" href="/app/styles.css">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self';
+               img-src 'self' data:; connect-src 'self'; script-src 'self';
+               object-src 'none'; base-uri 'none'; form-action 'none'">
+</head>
+<body>
+
+<div class="titlebar">
+  <div class="lights" id="lights">
+    <button type="button" data-win="close"    style="background:#ED6A5E" aria-label="Close"></button>
+    <button type="button" data-win="minimize" style="background:#F4BF50" aria-label="Minimise"></button>
+    <button type="button" data-win="maximize" style="background:#61C555" aria-label="Maximise"></button>
+  </div>
+  <div class="title">Sentinels</div>
+  <span class="airgap" id="airgap" title="Bytes that have crossed the machine boundary">
+    <span class="led"></span><span id="airgap-text">AIRGAPPED · 0 BYTES SENT</span>
+  </span>
+</div>
+
+<div class="shell">
+  <aside class="side">
+    <div class="brand"><span class="mark">S</span> Sentinels</div>
+    <button class="newbtn" id="new-btn">Pose a question<kbd>Ctrl ⏎</kbd></button>
+
+    <div class="grp">
+      <div class="lbl">Deliberations</div>
+      <div id="brief-list"><p class="hint" style="padding:.3rem .45rem">None yet.</p></div>
+    </div>
+
+    <div class="grp" style="margin-top:auto">
+      <div class="lbl">Bench</div>
+      <div id="bench"></div>
+      <button class="row" id="settings-btn" style="margin-top:.5rem">
+        <span class="dot" style="background:var(--ink-3)"></span>
+        <span class="ttl">Settings</span>
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="thread" id="thread">
+      <div class="empty" id="empty">
+        <h2>Nothing before the council</h2>
+        <p>Pose a question with no single right answer. Three sentinels answer blind,
+           rank each other without names attached, then a chairman writes the brief.</p>
+        <p style="margin-top:.8rem">Expect 80&ndash;200 seconds. It runs on your CPU.</p>
+      </div>
+    </div>
+
+    <div class="banner" id="ctx-banner" hidden>
+      <b>No context set.</b>
+      <span>Small models do not know what your project is. Without a context paragraph
+            they will answer a different question, confidently.</span>
+      <button type="button" id="ctx-fix">Set it now</button>
+    </div>
+
+    <form class="composer" id="composer">
+      <textarea id="question" rows="2"
+        placeholder="Should I keep the FastAPI shim once ADK talks to Ollama directly?"></textarea>
+      <div class="crow">
+        <div class="seg" id="classification" role="group" aria-label="Classification">
+          <button type="button" data-v="sealed" class="on">&#9642; sealed</button>
+          <button type="button" data-v="open">&#9671; open</button>
+          <button type="button" data-v="redacted">&#9672; redacted</button>
+        </div>
+        <span class="hint" id="cls-hint">Local bench only. Nothing leaves this machine.</span>
+        <button class="send" id="send" type="submit">Send to council</button>
+      </div>
+    </form>
+
+    <div class="statusbar">
+      <span id="ollama-state">checking Ollama&hellip;</span>
+      <span id="loaded-models"></span>
+      <span class="gauge">RAM <span class="g"><i id="ram-bar" style="width:0%"></i></span>
+        <span id="ram-text">&ndash;</span></span>
+      <span id="chairman-state" style="margin-left:auto"></span>
+    </div>
+  </main>
+</div>
+
+<dialog id="settings-dlg">
+  <form method="dialog" class="dlg">
+    <h3>Settings</h3>
+
+    <label class="field">
+      <span class="flabel">Project context</span>
+      <span class="fhelp">Prepended to every member&rsquo;s prompt. Describe the project,
+        its constraints, and any vocabulary the council needs. This is the single
+        biggest lever on output quality &mdash; more than which model you pick.</span>
+      <textarea id="ctx-input" rows="7" maxlength="4000"
+        placeholder="What is this project, what constrains it, what do the terms mean?"></textarea>
+      <span class="fcount"><span id="ctx-count">0</span> / 4000</span>
+    </label>
+
+    <label class="field">
+      <span class="flabel">Default classification</span>
+      <span class="fhelp">Which lane a new question starts in.</span>
+      <div class="seg" id="default-cls">
+        <button type="button" data-v="sealed">&#9642; sealed</button>
+        <button type="button" data-v="open">&#9671; open</button>
+        <button type="button" data-v="redacted">&#9672; redacted</button>
+      </div>
+    </label>
+
+    <label class="field">
+      <span class="flabel">The bench</span>
+      <span class="fhelp">Two to seven members. Diversity matters more than headcount &mdash;
+        members sharing one model mostly rephrase each other, which is the failure
+        a council exists to avoid.</span>
+      <div id="bench-rows" class="bench-rows"></div>
+      <div class="bench-actions">
+        <button type="button" id="add-member" class="ghostbtn">Add member</button>
+        <span class="diversity" id="diversity"></span>
+      </div>
+    </label>
+
+    <label class="field">
+      <span class="flabel">Chairman</span>
+      <span class="fhelp">Writes the brief. Does not add findings of its own.</span>
+      <div id="chair-row" class="bench-rows"></div>
+    </label>
+
+    <p class="dlg-note">
+      Stored at <code id="cfg-path">&hellip;</code>, readable only by you.
+      On an <b>open</b> or <b>redacted</b> question the context is sent along with
+      the question &mdash; it counts toward bytes sent.
+    </p>
+
+    <div class="dlg-actions">
+      <button type="button" id="ctx-starter" class="ghostbtn">Use starter text</button>
+      <button type="submit" value="cancel" class="ghostbtn">Cancel</button>
+      <button type="button" id="save-settings" class="send">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="audit-dlg">
+  <form method="dialog" class="dlg">
+    <h3>Audit trail</h3>
+    <p class="fhelp" id="audit-verdict">Checking&hellip;</p>
+    <div class="audit-wrap"><table class="audit"><tbody id="audit-rows"></tbody></table></div>
+    <p class="dlg-note">Each entry carries the digest of the one before it, so the log is
+      tamper-evident: an edited or removed entry breaks the chain. This proves the record
+      has not changed since it was written &mdash; not who wrote it.</p>
+    <div class="dlg-actions"><button type="submit" class="ghostbtn" style="margin-left:auto">Close</button></div>
+  </form>
+</dialog>
+
+<script src="/app/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "sentinels-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop shell for Sentinels. Owns the local backend; never navigates off the machine.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --enable-logging"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0"
+  }
+}

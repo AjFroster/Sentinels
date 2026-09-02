@@ -1,0 +1,91 @@
+name: CI
+
+# Runs on every PR into master and on master itself. The three test jobs are
+# split so a red check names the layer that broke rather than just "tests".
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: unit (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.10 is what the project is developed on; 3.12 catches anything that
+        # relies on behaviour due to change.
+        python: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install
+        run: uv sync --group dev --python ${{ matrix.python }}
+      - name: Unit tests
+        run: uv run pytest -m "not smoke and not e2e" -v
+
+  smoke:
+    name: smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install
+        run: uv sync --group dev
+      - name: Smoke tests
+        run: uv run pytest -m smoke -v
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install
+        run: uv sync --group dev
+      # Drives a real uvicorn process over HTTP against a stub model server.
+      # No Ollama and no model download: the pipeline is what is under test,
+      # and a 1.3 GB pull per run would buy nothing but minutes.
+      - name: End-to-end tests
+        run: uv run pytest -m e2e -v
+
+  desktop:
+    name: desktop shell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      # Electron itself is ~100 MB and needs a display; syntax-checking the
+      # main and preload processes catches the failures worth catching here.
+      - name: Check Electron sources parse
+        run: |
+          node --check desktop/main.js
+          node --check desktop/preload.js
+          node --check src/sentinels/web/app.js
+      - name: Check the page fetches nothing remote
+        # The titlebar claims zero bytes sent; a stray CDN link would make that
+        # a lie on first paint.
+        run: |
+          if grep -rEn "https?://(fonts\.(googleapis|gstatic)|cdn|unpkg|jsdelivr)" \
+               src/sentinels/web/index.html src/sentinels/web/fonts.css; then
+            echo "::error::Remote asset reference found in the web shell"
+            exit 1
+          fi
+          echo "No remote asset references."
